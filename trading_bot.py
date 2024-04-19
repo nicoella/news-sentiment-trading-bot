@@ -1,39 +1,43 @@
-import pandas as pd
 import tpqoa
 from sentiment import total_sentiment
 
 # constants
-API = tpqoa.tpqoa("oanda.cfg")
-INSTRUMENT = "US SPX 500"
-UNITS = 100000
+DEFAULT_API = tpqoa.tpqoa("oanda.cfg")
+DEFAULT_INSTRUMENT = "US SPX 500"
+DEFAULT_UNITS = 100000
 
-# variables
-bought = 0
+class TradingBot():
+    # initialize function
+    def __init__(self, api = DEFAULT_API, instrument = DEFAULT_INSTRUMENT, units = DEFAULT_UNITS):
+        self.api = api
+        self.instrument = instrument
+        self.units = units
+        self.bought = 0
+        
+    # function to buy stock once
+    def buy_stock(self):
+        self.api.create_order(instrument = self.instrument, units = self.units)
+        bought += self.units
 
-# function to buy stock once
-def buy_stock():
-    API.create_order(instrument = INSTRUMENT, units = UNITS)
-    bought += UNITS
+    # function to sell stock once
+    def sell_stock(self):
+        self.api.create_order(instrument = self.instrument, units = -self.units)
+        bought -= self.units
 
-# function to sell stock once
-def sell_stock():
-    API.create_order(instrument = INSTRUMENT, units = -UNITS)
-    bought -= UNITS
-
-# function to check to buy
-def check_buy(sentiment):
-    if sentiment == 1:
-        buy_stock()
-    
-# function to check to sell
-def check_sell(sentiment):
-    if sentiment == -1:
-        sell_stock()
-    
-# function to check based on if we have stock bought
-def check():
-    sentiment = total_sentiment()
-    if bought: # already have stock, check to sell
-        check_sell(sentiment)
-    else: # don't have stock, check to buy
-        check_buy(sentiment)
+    # function to check to buy
+    def check_buy(self, sentiment):
+        if sentiment == 1:
+            self.buy_stock()
+        
+    # function to check to sell
+    def check_sell(self, sentiment):
+        if sentiment == -1:
+            self.sell_stock()
+        
+    # function to check based on if we have stock bought
+    def check(self):
+        sentiment = total_sentiment()
+        if self.bought: # already have stock, check to sell
+            self.check_sell(sentiment)
+        else: # don't have stock, check to buy
+            self.check_buy(sentiment)
