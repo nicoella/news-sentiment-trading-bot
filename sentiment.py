@@ -13,12 +13,14 @@ def sentiment(text):
     return polarity
     
 # function to calculate buy, sell, or neutral
-def total_sentiment():
-    tweets = search_tweets(QUERY, {})
+def total_sentiment(date):
+    tweets = search_tweets(QUERY, { date: date })
     
     sum = 0
     for tweet in tweets:
         sum += sentiment(tweet)
+        
+    sum /= len(tweets)
 
     if sum > 0.1: # stock is rising
         return 1

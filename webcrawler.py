@@ -31,7 +31,7 @@ def filter_english(tweets):
 # function search tweets 
 def search_tweets(text, options):
     # build query
-    query = build_query(text=text, options=options, count = 50, cursor = 50)
+    query = build_query(text=text, options=options)
     
     # search tweets
     tweets = client.search_tweet(query, 'Top')

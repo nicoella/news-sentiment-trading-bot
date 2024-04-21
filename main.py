@@ -1,9 +1,12 @@
 import schedule
 import time
-from trading_bot import check
-    
+from datetime import datetime
+from trading_bot import TradingBot
+
+bot = TradingBot()
+
 # define time to check
-schedule.every().day.at("09:20").do(check)
+# schedule.every().day.at("09:30").do(bot.check)
 
 # run scheduler loop
 def main():
