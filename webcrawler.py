@@ -1,6 +1,6 @@
-from twikit import Client, build_query
-from langdetect import detect
-import configparser
+from datetime import datetime
+from bs4 import BeautifulSoup
+import requests
 import pickle
 
 # save memoized data
@@ -22,59 +22,65 @@ def save_memoized_searches():
 # load initially saved data
 memoized_searches = load_memoized_searches()
 
-# parse account data
-config = configparser.ConfigParser()
-config.read('twitter.cfg')
+# constants
+DEFAULT_QUERY = "US+SPX+500"
 
-username = config['credentials']['username']
-password = config['credentials']['password']
-
-# initialize client
-client = Client('en-US')
-
-client.login(
-    auth_info_1=username,
-    password=password
-)
-
-# function filter out non-english tweets
-def filter_english(tweets):
-    english = []
-    for tweet in tweets:
-        try:
-            if detect(tweet) == 'en':
-                english.append(tweet)
-        except:
-            pass
-    return english
-    
-# function search tweets 
-def search_tweets(text, options):
+# webcrawler to crawl google news
+def crawl_news(date=None, query=DEFAULT_QUERY):
     # check if the result is already memoized
-    cache_key = (text, options.get('date'))  
+    cache_key = (query, date)  
     if cache_key in memoized_searches:
         print("memoized")
         return memoized_searches[cache_key]
     
-    # build query
-    query = build_query(text=text, options=options)
+    # set date to today if not specified
+    if (date == None):
+        date = datetime.now().strftime("%m/%d/%Y")
     
-    # search tweets
-    tweets = client.search_tweet(query, 'Top')
+    # loop through pages until date reached
+    page = 0
+    news = []
     
-    results = []
-    
-    # print tweets
-    for tweet in tweets:
-        results.append(tweet.text)
+    while True:
+        # create base URL for current page
+        base_url = "https://www.google.com/search?q="+query+"&tbs=cdr:1,cd_max:"+date+",sbd:1&tbm=nws&start="+str(page)
+        page += 10
         
-    filtered_results = filter_english(results)
-    
+        # HTTP GET request
+        response = requests.get(base_url)
+        
+        # exit if a date is reached
+        exit = False
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, "html.parser")
+            
+            # find all articles on the current page
+            articles = soup.find_all("div", class_="Gx5Zad fP1Qef xpd EtOod pkphOe")
+                
+            # iterate through each article    
+            for article in articles:
+                title = article.find("div", class_="BNeawe vvjwJb AP7Wnd").text.strip()
+                date = article.find("span", class_="r0bn4c rQMQod").text.strip()
+                
+                # exit once 2 months or more reached
+                split = date.split(' ')
+                if (split[1] == "months" or split[1] == "year" or split[1] == "years"):
+                    exit = True
+                    break
+                news.append(title)
+        else:
+            print("error fetching news articles. status code:", response.status_code)
+            break
+        
+        if exit:
+            break
+        
     # memoize results
-    memoized_searches[cache_key] = filtered_results
-    
-    # save memoized results to file
+    memoized_searches[cache_key] = news
     save_memoized_searches()
     
     # return results
-    return filtered_results
+    return news
+    
+print(crawl_news())
