@@ -1,30 +1,28 @@
-from textblob import TextBlob
-from webcrawler import search_tweets
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from webcrawler import crawl_google
 
 # constants
-QUERY = "#SPX500"
+DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+TOKENIZER = AutoTokenizer.from_pretrained("ProsusAI/finbert")
+MODEL = AutoModelForSequenceClassification.from_pretrained("ProsusAI/finbert").to(DEVICE)
+LABELS = ["positive", "negative", "neutral"]
 
-# function to calculate the sentiment of a tweet
-def sentiment(text):
-    analysis = TextBlob(text)
+# calculate total news article sentiments
+def calculate_sentiment(date):
+    articles = crawl_google(date)
+    print(date)
+    print(articles)
+    if(len(articles) == 0):
+        return None, None
     
-    polarity = analysis.sentiment.polarity
-    
-    return polarity
-    
-# function to calculate buy, sell, or neutral
-def total_sentiment(date):
-    tweets = search_tweets(QUERY, { date: date })
-    
-    sum = 0
-    for tweet in tweets:
-        sum += sentiment(tweet)
-        
-    sum /= len(tweets)
+    tokens = TOKENIZER(articles, return_tensors="pt", padding=True).to(DEVICE)
 
-    if sum > 0.1: # stock is rising
-        return 1
-    elif sum < -0.1: # stock is dropping
-        return -1
-    else: # neutral
-        return 0
+    result = MODEL(tokens["input_ids"], attention_mask=tokens["attention_mask"])[
+        "logits"
+    ]
+    result = torch.nn.functional.softmax(torch.sum(result, 0), dim=-1)
+    probability = result[torch.argmax(result)]
+    sentiment = LABELS[torch.argmax(result)]
+    
+    return probability, sentiment
