@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from bs4 import BeautifulSoup
 import pickle
+import threading
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -13,11 +14,8 @@ from selenium.webdriver.support import expected_conditions as EC
 # constants
 DEFAULT_QUERY = "US+SPX+500"
 
-# set up driver
-chrome_options = Options()
-chrome_options.add_argument("--headless")  
-service = Service('./chromedriver')  # update path to chromedriver
-driver = webdriver.Chrome(service=service, options=chrome_options)
+# store news articles
+news = []
 
 # save memoized data
 memoized_searches = {}
@@ -65,53 +63,59 @@ def crawl_google(date):
     params = {
         'q':DEFAULT_QUERY, 'tbs':'cdr:1,cd_min:'+start_date+',cd_max:'+date+',sbd:1', 'tbm':'nws', 
     }
-    return crawl(link, 'start', 10, params, "div", "SoaBEf", '.n0jPhd.ynAwRc.MBeuO.nDgy9d')
+    return crawl(link, 'start', 10, params, "div", {'aria-level': '3', 'class': 'n0jPhd ynAwRc MBeuO nDgy9d'})
 
-# general webcrawler function
-def crawl(link, page_param, page_iterator, params, container_type, container_class = None, title_class = None):
-    # check if query is memoized
-    cache_key = f"{link}?{generate_param_str(params)}"
-    if cache_key in memoized_searches:
-        return memoized_searches[cache_key]  
+# crawl one page
+def crawl_page(link, page_param, page, params, title_type, title_params):
+    global news 
     
-    news = []
-    page = 0
-    
+    # set up driver
     chrome_options = Options()
     chrome_options.add_argument("--headless")  
     service = Service('./chromedriver')  # update path to chromedriver
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
-    # loop all pages
-    while True:
-        # generate url
-        params[page_param] = str(page)
-        url = f"{link}?{generate_param_str(params)}"
-        page += page_iterator
-        
-        # query url
-        driver.get(url)
-        WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.TAG_NAME, container_type)))
+    # generate url
+    params[page_param] = str(page)
+    url = f"{link}?{generate_param_str(params)}"
+                
+    # query url
+    driver.get(url)
+    WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.TAG_NAME, title_type)))
 
-        # parse html
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        articles = soup.find_all(container_type, class_=container_class) if container_class is not None else soup.find_all(container_type)
-           
-        # exit when no more articles 
-        if (len(articles) == 0):
-            break
-            
-        # iterate over each article and extract titles
-        for article in articles:
-            article_title = article.select_one(title_class).text.strip() 
-            news.append(article_title)
-    
+    # parse html
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    titles = soup.find_all(title_type, title_params)
+    for title in titles:
+        news.append(title.text.strip())
+        
     # quit driver
     driver.quit()
+
+# general webcrawler function
+def crawl(link, page_param, page_iterator, params, title_type, title_class = None):
+    # check if query is memoized
+    cache_key = f"{link}?{generate_param_str(params)}"
+    if cache_key in memoized_searches:
+        return memoized_searches[cache_key]  
+    
+    # reset news variable
+    global news
+    news = []
+    
+    # loop all pages
+    threads = []
+    for i in range(5):
+        thread = threading.Thread(target=crawl_page, args=(link, page_param, i * page_iterator, params, title_type, title_class))
+        thread.start()
+        threads.append(thread)
+        
+    for thread in threads:
+        thread.join()
     
     # memoize results
     memoized_searches[cache_key] = news
     save_memoized_searches()
-    
+        
     # return results
     return news

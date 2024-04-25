@@ -11,9 +11,7 @@ LABELS = ["positive", "negative", "neutral"]
 # calculate total news article sentiments
 def calculate_sentiment(date):
     articles = crawl_google(date)
-    print(date)
-    print(articles)
-    if(len(articles) == 0):
+    if (len(articles) == 0):
         return None, None
     
     tokens = TOKENIZER(articles, return_tensors="pt", padding=True).to(DEVICE)
