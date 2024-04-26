@@ -12,10 +12,7 @@ def backtest():
     cerebro.addstrategy(TradingBotBacktest)
     
     # get SPX 500 data
-    df = yf.download('^SPX', start='2023-01-01', end='2023-10-01')
-    
-    # print data
-    print(df)
+    df = yf.download('^SPX', start='2020-01-01', end='2024-02-29')
     
     # convert to feed
     feed = bt.feeds.PandasData(dataname=df)
