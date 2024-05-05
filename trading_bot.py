@@ -64,14 +64,17 @@ class TradingBotBacktest(TradingBot, bt.Strategy):
         self.log('close, %.2f' % self.data[0])
         print('buying')
         
-    
     # override function to sell stock once
     def sell_stock(self):
+        if self.data[0] > self.bought:
+            self.hits += 1
+        self.requests += 1
         self.sell(size = 20)
         self.bought = 0
         # log messages
         self.log('close, %.2f' % self.data[0])
         print('selling')
+        print('hit/requests: %d/%d' % (self.hits, self.requests))
         
     # override check profit / loss margin
     def check_profit_loss(self):
@@ -86,6 +89,8 @@ class TradingBotBacktest(TradingBot, bt.Strategy):
     def __init__(self):
         super().__init__() 
         self.data = self.datas[0].close
+        self.hits = 0
+        self.requests = 0
 
     # next function for backtesting
     def next(self):        
